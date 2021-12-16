@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js" integrity="sha512-894YE6QWD5I59HgZOGReFYm4dnWc1Qt5NtvYSaNcOP+u1T9qYdvdihz0PPSiiqn/+/3e7Jo4EaG7TubfWGUrMQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js" integrity="sha512-xQBQYt9UcgblF6aCMrwU1NkVA7HCXaSN2oq0so80KO+y68M+n64FOcqgav4igHe6D5ObBLIf68DWv+gfBowczg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="rc.js"></script>
+</head>
+
+<body>
+  Give us a 15-letter revealer and a list of words.
+  We'll try to make you a grid in which the words cross the revealer.
+
+  <br /><br />
+
+  <div id="loading">Loading ...</div>
+  <form action="." id="rc-form" autocomplete="off">
+
+  Position of the word in the entry:
+  <br />
+  <input type="radio" id="front" name="position" value="front" checked>
+  <label for="front">Front</label><br>
+  <input type="radio" id="middle" name="position" value="middle">
+  <label for="middle">Middle</label><br>
+  <input type="radio" id="back" name="position" value="back">
+  <label for="back">Back</label>
+
+  <br /><br />
+  List of possible words
+  <br />
+  <textarea id="words" name="words" rows="6" cols="15"></textarea>
+
+  <br /><br />
+  <label for="revealer">
+  Your fifteen-letter revealer
+  </label>
+  <br />
+  <input type="text" id="revealer" name="revealer">
+
+  <br />
+  <input type="submit" value="Submit" />
+  </form>
+  <br /><br />
+  <div id="results"></div>
+
+</body>
+</HTML>
