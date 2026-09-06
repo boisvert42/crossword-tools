@@ -124,18 +124,68 @@ function xwDupes(xw, minDupeLength=4) {
 }
 
 /**
+ * Identifies duplicate words or shared etymological roots/stems within the grid entries
+ * using the global window.findDupes function from dupe-checker.min.js.
+ * Also catches exact word repetitions across different grid slots.
+ *
+ * @param {Object} xw - The JSCrossword puzzle object.
+ * @returns {Promise<Array<Object>>} Array of grid dupe objects.
+ */
+async function findGridDupes(xw) {
+    var dupes = [];
+    var entry_map = xw.get_entry_mapping();
+    var words = Object.values(entry_map)
+        .map(function (w) { return (w || '').toLowerCase().replace(/[^a-z]+/g, ''); })
+        .filter(function (w) { return w.length > 0; });
+
+    // Check for exact duplicate entries across different grid slots
+    var wordCounts = {};
+    words.forEach(function (w) {
+        wordCounts[w] = (wordCounts[w] || 0) + 1;
+    });
+
+    Object.keys(wordCounts).forEach(function (w) {
+        if (wordCounts[w] > 1) {
+            dupes.push({
+                type: 'exact',
+                stem: w,
+                words: Array(wordCounts[w]).fill(w)
+            });
+        }
+    });
+
+    // Check for shared stems, suffixes, and etymological dupes via window.findDupes
+    if (typeof window !== 'undefined' && typeof window.findDupes === 'function') {
+        var uniqueWords = Array.from(new Set(words));
+        try {
+            var dupeResult = await window.findDupes(uniqueWords);
+            if (dupeResult && Array.isArray(dupeResult.dupes)) {
+                dupeResult.dupes.forEach(function (d) {
+                    dupes.push(d);
+                });
+            }
+        } catch (err) {
+            console.error('Error executing window.findDupes:', err);
+        }
+    }
+
+    return dupes;
+}
+
+/**
  * Runs a full suite of submission specification checks against standard crossword guidelines:
  * 1. Black squares count (typical guideline: <= 1/6 of total cells in grid).
  * 2. 3-letter words count (typical guideline: <= 25% of total entries).
  * 3. Total word count (typical guideline formula: <= ceil(0.3 * width * height + 12)).
  * 4. Clue character count (typical layout formula: <= ceil((50/9) * width * height + 350)).
  * 5. Clue/entry dupes (guideline: 0 duplicate words >= minDupeLength).
+ * 6. Within-grid dupes (guideline: 0 shared stems/roots or duplicate entries).
  *
  * @param {Object} xw - The JSCrossword puzzle object.
  * @param {number} [minDupeLength=4] - Minimum word length for duplicate checking.
- * @returns {Array<Object>} Array of result objects with {name, value, max_value, is_ok}.
+ * @returns {Promise<Array<Object>>} Array of result objects with {name, value, max_value, is_ok}.
  */
-function submissionChecker(xw, minDupeLength=4) {
+async function submissionChecker(xw, minDupeLength=4) {
     var check_results = [];
 
     // Guideline 1: Black squares should typically not exceed 1/6 of total grid squares
@@ -181,12 +231,21 @@ function submissionChecker(xw, minDupeLength=4) {
     });
 
     // Guideline 5: Unintentional dupes between clues and entries
-    var dupes = xwDupes(xw, minDupeLength);
+    var clueDupes = xwDupes(xw, minDupeLength);
     check_results.push({
-        'name': 'Dupes',
-        'value': dupes,
+        'name': 'Dupes (grid vs. clues)',
+        'value': clueDupes,
         'max_value': null,
-        'is_ok': (dupes.length == 0)
+        'is_ok': (clueDupes.length == 0)
+    });
+
+    // Guideline 6: Dupes within the grid (shared stems/roots or repeated entries)
+    var gridDupesList = await findGridDupes(xw);
+    check_results.push({
+        'name': 'Dupes (within grid)',
+        'value': gridDupesList,
+        'max_value': null,
+        'is_ok': (gridDupesList.length == 0)
     });
 
     return check_results;
@@ -199,10 +258,10 @@ function submissionChecker(xw, minDupeLength=4) {
  *
  * @param {Object} xw - The JSCrossword puzzle object.
  * @param {number} [minDupeLength=4] - Minimum word length for duplicate checking.
- * @returns {string} Formatted HTML representing the check results.
+ * @returns {Promise<string>} Formatted HTML representing the check results.
  */
-function submission_check_html(xw, minDupeLength=4) {
-    var check_results = submissionChecker(xw, minDupeLength);
+async function submission_check_html(xw, minDupeLength=4) {
+    var check_results = await submissionChecker(xw, minDupeLength);
     var html = '';
 
     check_results.forEach(function (x) {
@@ -211,10 +270,30 @@ function submission_check_html(xw, minDupeLength=4) {
         html += `<h3>${x.name}</h3>`;
         html += `<p style="color:${color};">`;
 
-        if (x.name == 'Dupes') {
+        if (x.name === 'Dupes' || x.name === 'Dupes (grid vs. clues)') {
             // List all detected clue/entry duplicates
             x.value.forEach(function (d) {
                 html += `${d.entry} / ${d.clue} [${d.clueNumber}-${d.clueDirection}]<br />\n`;
+            });
+            if (!x.value.length) {
+                html += 'No dupes found.';
+            }
+        } else if (x.name === 'Dupes (within grid)') {
+            // List all detected within-grid duplicates
+            x.value.forEach(function (d) {
+                var wordsStr = (d.words || []).map(function (w) { return w.toUpperCase(); }).join(' / ');
+                var details = [];
+                if (d.stem) {
+                    details.push(`stem: "${d.stem}"`);
+                }
+                if (d.matchedSuffix) {
+                    details.push(`suffix: -${d.matchedSuffix}`);
+                }
+                if (d.type && d.type !== 'stem') {
+                    details.push(`type: ${d.type}`);
+                }
+                var detailStr = details.length ? ` (${details.join(', ')})` : '';
+                html += `${wordsStr}${detailStr}<br />\n`;
             });
             if (!x.value.length) {
                 html += 'No dupes found.';
