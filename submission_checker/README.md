@@ -22,9 +22,13 @@ The submission checker evaluates a puzzle against the following standard editori
    - **Guideline**: Approximated by `Math.ceil((50/9) * width * height + 350)` characters total.
    - *Example*: ~1,600 characters for a 15×15 grid. Useful for ensuring clue lists will fit standard print publication layouts without crowding.
 
-5. **Clue / Entry Duplicates ("Dupes")**
+5. **Dupes (Grid vs. Clues)**
    - **Guideline**: Words in clues should not duplicate or appear within grid entries.
    - Strips non-alphanumeric characters, uppercases clue tokens, and flags any word of length $\ge$ `minDupeLength` (configurable in the UI, default 4) that matches any grid entry.
+
+6. **Dupes (Within Grid)**
+   - **Guideline**: Grid entries should not repeat identical words or share etymological roots, stems, or suffixes (e.g., `QUICK` / `QUICKLY`, `ATEUP` / `EATING`).
+   - Powered by `window.findDupes` from [`dupe-checker.min.js`](dupe-checker.min.js).
 
 ## Supported Formats
 
@@ -38,15 +42,15 @@ Puzzle parsing is handled via [`JSCrossword`](../jscrossword/):
 ## Files
 
 - **[`submission_checker.js`](submission_checker.js)**: Core validation logic and HTML report generator.
+- **[`dupe-checker.min.js`](dupe-checker.min.js)**: Bundled stemmer and dupe-finding engine providing `window.findDupes`.
 - **[`index.html`](index.html)**: Browser interface to upload puzzle files and view pass/fail checks with diagnostic details.
-- **`dupe-checker.min.js`**: Bundled word list/checker utility.
 
 ## Usage
 
 ### In the Browser
 
 Open `index.html` in your web browser (or serve the repository via a local web server):
-1. Select the minimum word length for duplicate checking (3, 4, or 5; default is 4).
+1. Select the minimum word length for clue duplicate checking (3, 4, or 5; default is 4).
 2. Choose a supported puzzle file using the file selector.
 3. View the checklist results with pass (✅) and fail (❌) indicators.
 
@@ -56,20 +60,21 @@ Open `index.html` in your web browser (or serve the repository via a local web s
 // Parse a puzzle file using JSCrossword
 const xw = new JSCrossword().fromData(fileContents);
 
-// Run the submission checker directly (returns an array of metric objects)
-const results = submissionChecker(xw, /* minDupeLength = */ 4);
+// Run the submission checker asynchronously (returns an array of metric objects)
+const results = await submissionChecker(xw, /* minDupeLength = */ 4);
 /*
 [
   { name: 'Black squares', value: 36, max_value: 38, is_ok: true },
   { name: '3-letter words', value: 8, max_value: 19, is_ok: true },
   { name: 'Word count', value: 76, max_value: 80, is_ok: true },
   { name: 'Clue characters', value: 1420, max_value: 1600, is_ok: true },
-  { name: 'Dupes', value: [], max_value: null, is_ok: true }
+  { name: 'Dupes (grid vs. clues)', value: [], max_value: null, is_ok: true },
+  { name: 'Dupes (within grid)', value: [], max_value: null, is_ok: true }
 ]
 */
 
 // Or generate HTML output directly
-const reportHtml = submission_check_html(xw, /* minDupeLength = */ 4);
+const reportHtml = await submission_check_html(xw, /* minDupeLength = */ 4);
 document.getElementById('results').innerHTML = reportHtml;
 ```
 
