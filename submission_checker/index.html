@@ -3,6 +3,7 @@
 <head>
     <meta http-equiv="content-type" content="text/html; charset=utf-8" />
     <script src="../jscrossword/jscrossword_combined.js"></script>
+    <script src="dupe-checker.min.js"></script>
     <script src="submission_checker.js"></script>
 </head>
 
@@ -21,15 +22,12 @@ Minimum word length for dupes
 
 <script type="text/javascript">
 
-
-var MY_GLOBAL;
-
 /** Handling form submission **/
 function handleFileSelect(evt) {
     const files = evt.target.files; // FileList object
 
     // read in the "min length" number
-    const minLen = parseInt(document.getElementById('minLen').value)
+    const minLen = parseInt(document.getElementById('minLen').value);
 
     // files is a FileList of File objects.
     for (let i = 0, f; f = files[i]; i++) {
@@ -42,12 +40,13 @@ function handleFileSelect(evt) {
             var filename = f.name.toLowerCase();
             const r = new FileReader();
             r.onload = (function (theFile) {
-                return function (e) {
+                return async function (e) {
                     let contents = e.target.result;
                     var xw_constructor = new JSCrossword();
                     var xw = xw_constructor.fromData(contents);
                     console.log(xw);
-                    document.getElementById('results').innerHTML = submission_check_html(xw, minDupeLength=minLen);
+                    document.getElementById('results').innerHTML = 'Checking submission...';
+                    document.getElementById('results').innerHTML = await submission_check_html(xw, minLen);
                 };
             })(f);
             r.readAsBinaryString(f);
